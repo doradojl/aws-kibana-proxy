@@ -1,12 +1,15 @@
 var commandLineArgs = require('command-line-args')
 var cli = commandLineArgs([
-  { name: 'config', alias: 'c', type: String }
+  { name: 'config',   alias: 'c', type: String },
+  { name: 'noauth',  alias: 'n', type: Boolean }
 ])
 
 var cmdLineOpts = cli.parse()
 if (cmdLineOpts.config) {
   var config = JSON.parse(require('fs').readFileSync(cmdLineOpts.config, 'utf8'));
 }
+var shouldNotAuthenticate = cmdLineOpts.noauth
+var shouldAuthenticate = !(cmdLineOpts.noauth)
 
 var http = require('http');
 var httpProxy = require('http-proxy')
@@ -28,12 +31,14 @@ var app = express()
 app.use(bodyParser.raw({ type: '*/*' }));
 app.use(sessions({ cookieName: 'session', secret: config.session_secret }))
 
-var googleOauth = require('./lib/google-oauth')
-googleOauth.setupOAuth(express, app, config.auth)
+if (shouldAuthenticate) {
+  var googleOauth = require('./lib/google-oauth')
+  googleOauth.setupOAuth(express, app, config.auth)
+}
 
 app.use(
   function(req, res, next) {
-    if (req.session.authenticated) {
+    if (shouldNotAuthenticate || req.session.authenticated) {
       return next()
     }
     req.session.beforeLoginURL = req.url
